@@ -7,6 +7,7 @@ use App\Models\Affiliate;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 class MerchantService
 {
@@ -21,6 +22,22 @@ class MerchantService
     public function register(array $data): Merchant
     {
         // TODO: Complete this method
+        $user = User::create([
+            'email' => $data['email'],
+            'name' => $data['name'],
+            'password' => $data['api_key'],
+            'type' => User::TYPE_MERCHANT
+        ]);
+
+        $merchant = Merchant::create([
+            'user_id' => $user->id,
+            'domain'  => $data['domain'],
+            'display_name' => $data['name']
+        ]);
+
+        $merchant = Merchant::find($merchant->id);
+
+        return $merchant;
     }
 
     /**
@@ -32,6 +49,19 @@ class MerchantService
     public function updateMerchant(User $user, array $data)
     {
         // TODO: Complete this method
+        User::where('id', $user->id)
+        ->update([
+            'name' => $data['name'],
+            'password' => $data['api_key'],
+            'email' => $data['email']
+        ]);
+
+        Merchant::where('user_id', $user->id)
+        ->update([
+            'user_id' => $user->id,
+            'domain'  => $data['domain'],
+            'display_name' => $data['name']
+        ]);
     }
 
     /**
@@ -44,6 +74,16 @@ class MerchantService
     public function findMerchantByEmail(string $email): ?Merchant
     {
         // TODO: Complete this method
+        $user = User::where('email', $email)
+        ->where('type', User::TYPE_MERCHANT)
+        ->first();
+        if($user){
+            $merchant = Merchant::where('user_id', $user->id)
+            ->first();
+            return $merchant;
+        }else{
+            return null;
+        }
     }
 
     /**
@@ -56,5 +96,13 @@ class MerchantService
     public function payout(Affiliate $affiliate)
     {
         // TODO: Complete this method
+        $orders = Order::where('affiliate_id', $affiliate->id)
+        ->where('payout_status', Order::STATUS_UNPAID)
+        ->get();
+
+        foreach ($orders as $order) {
+            PayoutOrderJob::dispatch($order);
+        }
+
     }
 }
